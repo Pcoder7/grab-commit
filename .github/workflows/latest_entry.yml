@@ -47,7 +47,14 @@ jobs:
           echo "Workflow triggered by the completion of Run ID: ${{ github.event.workflow_run.id }}"
           echo "Searching for the latest commit in '${{ env.STORE_OWNER }}/${{ env.STORE_REPO_NAME }}'..."
 
-          LATEST_COMMIT_HASH=$(git log --grep="$COMMIT_MESSAGE_PATTERN" -n 1 --format="%H")
+          #LATEST_COMMIT_HASH=$(git log --grep="$COMMIT_MESSAGE_PATTERN" -n 1 --format="%H")
+
+                    # skip merges so we get the real change-set
+          LATEST_COMMIT_HASH=$(git log \
+            --no-merges \
+            --grep="$COMMIT_MESSAGE_PATTERN" \
+            -n1 \
+            --format="%H")
 
           if [ -z "$LATEST_COMMIT_HASH" ]; then
             echo "::error::Could not find any commits matching the pattern in the repository history."
@@ -56,8 +63,15 @@ jobs:
           
           echo "Found latest commit hash: $LATEST_COMMIT_HASH"
           echo "Extracting new entries from this commit..."
+          
+          # diff against its first parent, zero context
+          
+          git diff "${LATEST_COMMIT_HASH}^1" "$LATEST_COMMIT_HASH" --unified=0 \
+            | grep '^\+' \
+            | grep -v '^\+\+\+' \
+            > latest_entries.txt || true         
 
-          git show -m "$LATEST_COMMIT_HASH" | grep '^\+' | grep -v '^\+\+\+' > latest_entries.txt || true
+          #git show -m "$LATEST_COMMIT_HASH" | grep '^\+' | grep -v '^\+\+\+' > latest_entries.txt || true
 
           echo "✅ Successfully processed commit. 'latest_entries.txt' has been created."
           echo "Total new entries found: $(wc -l < latest_entries.txt)"

@@ -39,55 +39,80 @@ jobs:
           fetch-depth: 0
 
       # Step 2: Find the single most recent commit and extract its data.
+      # Step 2: Find the single most recent commit and extract its data
       - name: Extract New Entries via git show
         shell: bash
         run: |
+          
           PATTERN="feat: Add new assets from distributed permutation scan"
 
-          # figure out exactly which commit to inspect
+          # Block 1: Find the target commit hash
+          echo "::group::[DEBUG] Block 1: Finding Commit"
           if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
             COMMIT="${{ github.event.workflow_run.head_sha }}"
-            echo "▶️ workflow_run → inspecting $COMMIT"
+            echo "▶️ Trigger is 'workflow_run'. Inspecting commit: $COMMIT"
             git fetch --no-tags origin "$COMMIT"
           else
-            echo "▶️ manual trigger → finding latest '$PATTERN'"
-            COMMIT=$(git log \
-              --no-merges \
-              --grep="$PATTERN" \
-              -n1 \
-              --format="%H") 
+            echo "▶️ Trigger is 'workflow_dispatch'. Finding latest commit with pattern: '$PATTERN'"
+            COMMIT=$(git log --no-merges --grep="$PATTERN" -n1 --format="%H")
             if [ -z "$COMMIT" ]; then
               echo "::error::No commit found matching '$PATTERN'"
               exit 1
             fi
-            echo "   → found commit $COMMIT"
+            echo "   → Found commit: $COMMIT"
           fi
+          echo "::endgroup::"
 
-          # show each parent‑diff (including for merges), zero‑context
+
+          # Block 2: Show full details of the commit found
+          echo "::group::[DEBUG] Block 2: Verifying Commit Details"
+          echo "Showing details for commit $COMMIT..."
+          git log -n1 --pretty=fuller "$COMMIT"
+          echo "::endgroup::"
+
+
+          # Block 3: Show the raw diff output from git
+          # This is the most important debug step. It shows what `grep` will receive.
+          echo "::group::[DEBUG] Block 3: Raw 'git show' Output"
+          echo "Showing raw, unfiltered diff for $COMMIT. The next grep command will process this output."
+          # We use `|| true` in case a commit has no diff (e.g., first commit) to avoid exiting.
+          git show "$COMMIT" --unified=0 || true
+          echo "End of raw 'git show' output."
+          echo "::endgroup::"
+          
+
+          # Block 4: Run the extraction command and show the result
+          echo "::group::[DEBUG] Block 4: Filtering Diff and Creating File"
+          echo "Filtering raw diff for lines starting with '+' and creating 'latest_entries.txt'..."
           git show "$COMMIT" --unified=0 \
             | grep '^\+' \
             | grep -v '^\+\+\+' \
             > latest_entries.txt || true
+          echo "File 'latest_entries.txt' created."
+          echo "--- Contents of latest_entries.txt ---"
+          cat latest_entries.txt
+          echo "--- End of file contents ---"
+          echo "::endgroup::"
 
+
+          # Block 5: Count the lines and validate
+          echo "::group::[DEBUG] Block 5: Final Validation"
           COUNT=$(wc -l < latest_entries.txt)
+          echo "Line count in latest_entries.txt is: $COUNT"
           if [ "$COUNT" -eq 0 ]; then
-            echo "::error::No added lines found in $COMMIT"
+            echo "::error::No added lines were found after filtering the diff from commit $COMMIT."
             exit 1
           fi
-
-          echo "✅ Found $COUNT new entries in $COMMIT"
-
-
+          echo "Validation successful."
+          echo "::endgroup::"
 
 
           echo "✅ Found $COUNT new entries in $COMMIT"
+          echo "Total new entries found: $(wc -l < latest_entries.txt)"
 
     
 
           #git show -m "$LATEST_COMMIT_HASH" | grep '^\+' | grep -v '^\+\+\+' > latest_entries.txt || true
-
-         
-          echo "Total new entries found: $(wc -l < latest_entries.txt)"
 
       # Step 3: Upload the extracted data as a downloadable artifact.
       - name: Upload Latest Entries as an Artifact

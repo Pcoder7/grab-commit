@@ -78,7 +78,7 @@ jobs:
             git show "$COMMIT" --unified=0 > raw_diff.txt
           fi
           echo "--- Contents of raw_diff.log (This is what will be filtered) ---"
-          cat raw_diff.txt
+          head -n10 raw_diff.txt
           echo "--- End of raw_diff.log ---"
           echo "::endgroup::"
           

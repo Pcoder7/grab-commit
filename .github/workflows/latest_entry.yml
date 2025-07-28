@@ -39,7 +39,7 @@ jobs:
           fetch-depth: 0
 
       # Step 2: Find the single most recent commit and extract its data.
-      # Step 2: Find the single most recent commit and extract its data
+
       - name: Extract New Entries via git show
         shell: bash
         run: |

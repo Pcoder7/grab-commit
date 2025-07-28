@@ -39,54 +39,40 @@ jobs:
           fetch-depth: 0
 
       # Step 2: Find the single most recent commit and extract its data.
-      - name: Find Latest Commit and Extract New Entries
+      - name: Extract New Entries by Comparing Before/After
         shell: bash
         run: |
-          PATTERN="feat: Add new assets from distributed permutation scan"
+          # capture what we currently have
+          OLD_HEAD=$(git rev-parse HEAD)
 
-          # pick the right commit (same as before)
+          # grab the run’s head_sha or, on manual, just re‑fetch origin/main
           if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
-            COMMIT="${{ github.event.workflow_run.head_sha }}"
-            git fetch --no-tags origin "$COMMIT"
+            NEW_HEAD="${{ github.event.workflow_run.head_sha }}"
+            echo "▶️ workflow_run → diffing ${OLD_HEAD} → ${NEW_HEAD}"
+            git fetch --no-tags origin "${NEW_HEAD}"
+            git checkout "${NEW_HEAD}"
           else
-            COMMIT=$(git log \
-              --no-merges \
-              --grep="$PATTERN" \
-              -n1 \
-              --format="%H") || true
-            if [ -z "$COMMIT" ]; then
-              echo "::error::No commit matching '$PATTERN'"
-              exit 1
-            fi
+            # manual runs: update main and use its tip
+            echo "▶️ manual dispatch → diffing ${OLD_HEAD} → origin/main"
+            git fetch --no-tags origin main
+            NEW_HEAD=$(git rev-parse origin/main)
+            git checkout "${NEW_HEAD}"
           fi
 
-          echo "▶️ Processing commit $COMMIT"
-
-          # figure out how many parents it has
-          PARENT_COUNT=$(git rev-list --parents -n1 "$COMMIT" | wc -w)
-          if [ "$PARENT_COUNT" -gt 2 ]; then
-            # merge commit: use the second parent for the branch changes
-            PARENT="${COMMIT}^2"
-            echo "   Detected merge commit; diffing against second parent ($PARENT)"
-          else
-            # normal commit: diff against the first parent
-            PARENT="${COMMIT}^1"
-            echo "   Diffing against first parent ($PARENT)"
-          fi
-
-          # extract only added lines
-          git diff "$PARENT" "$COMMIT" --unified=0 \
+          # now diff old → new with zero context, grab only added lines
+          git diff "${OLD_HEAD}" "${NEW_HEAD}" --unified=0 \
             | grep '^\+' \
             | grep -v '^\+\+\+' \
             > latest_entries.txt || true
 
           COUNT=$(wc -l < latest_entries.txt)
           if [ "$COUNT" -eq 0 ]; then
-            echo "::error::No added lines found in $COMMIT (parent $PARENT)"
+            echo "::error::No added lines between ${OLD_HEAD} and ${NEW_HEAD}"
             exit 1
           fi
 
-          echo "✅ Found $COUNT new entries in $COMMIT"
+          echo "✅ Found $COUNT new entries"
+
 
 
           echo "✅ Found $COUNT new entries in $COMMIT"

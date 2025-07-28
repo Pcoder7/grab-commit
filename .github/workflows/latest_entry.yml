@@ -71,21 +71,21 @@ jobs:
           if git rev-parse --verify $COMMIT^ >/dev/null 2>&1; then
             # This is a normal commit with a parent. Diff against the parent.
             echo "Commit has a parent. Using 'git diff $COMMIT^ $COMMIT' for explicit comparison."
-            git diff "$COMMIT^" "$COMMIT" --unified=0 > raw_diff.log
+            git diff "$COMMIT^" "$COMMIT" --unified=0 > raw_diff.txt
           else
             # This is the first commit in the repository. Its "diff" is all of its content.
             echo "Commit is the first commit (no parent). Using 'git show' to display its content."
-            git show "$COMMIT" --unified=0 > raw_diff.log
+            git show "$COMMIT" --unified=0 > raw_diff.txt
           fi
           echo "--- Contents of raw_diff.log (This is what will be filtered) ---"
-          cat raw_diff.log
+          cat raw_diff.txt
           echo "--- End of raw_diff.log ---"
           echo "::endgroup::"
           
           # Block 3: Filter the raw diff and create the final file
           echo "::group::[DEBUG] Block 3: Filtering Diff"
           echo "Filtering raw diff for lines starting with '+'..."
-          cat raw_diff.log \
+          cat raw_diff.txt \
             | grep '^\+' --color=never \ 
             > latest_entries.txt || true
           echo "--- Contents of latest_entries.txt (The final result) ---"

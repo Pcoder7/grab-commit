@@ -44,7 +44,6 @@ jobs:
       - name: Extract New Entries via git diff
         shell: bash
         run: |
-          set -e # Exit immediately if a command exits with a non-zero status.
           
           PATTERN="feat: Add new assets from distributed permutation scan"
 

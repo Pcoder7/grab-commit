@@ -56,7 +56,7 @@ jobs:
               --no-merges \
               --grep="$PATTERN" \
               -n1 \
-              --format="%H")
+              --format="%H") || true
             if [ -z "$COMMIT" ]; then
               echo "::error::No commit found matching '$PATTERN'"
               exit 1
@@ -67,7 +67,7 @@ jobs:
           git diff "${COMMIT}^1" "$COMMIT" --unified=0 \
             | grep '^\+' \
             | grep -v '^\+\+\+' \
-            > latest_entries.txt
+            > latest_entries.txt || true
 
           COUNT=$(wc -l < latest_entries.txt)
           if [ "$COUNT" -eq 0 ]; then

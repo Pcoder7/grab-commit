@@ -42,38 +42,37 @@ jobs:
       - name: Find Latest Commit and Extract New Entries
         shell: bash
         run: |
-          COMMIT_MESSAGE_PATTERN="feat: Add new assets from distributed permutation scan"
-          
-          echo "Workflow triggered by the completion of Run ID: ${{ github.event.workflow_run.id }}"
-          echo "Searching for the latest commit in '${{ env.STORE_OWNER }}/${{ env.STORE_REPO_NAME }}'..."
-
-          #LATEST_COMMIT_HASH=$(git log --grep="$COMMIT_MESSAGE_PATTERN" -n 1 --format="%H")
-
-                    # skip merges so we get the real change-set
-          LATEST_COMMIT_HASH=$(git log \
-            --no-merges \
-            --grep="$COMMIT_MESSAGE_PATTERN" \
-            -n1 \
-            --format="%H")
-
-          if [ -z "$LATEST_COMMIT_HASH" ]; then
-            echo "::error::Could not find any commits matching the pattern in the repository history."
-            exit 1
+          # on a workflow_run trigger, this is the SHA of the commit
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            COMMIT="${{ github.event.workflow_run.head_sha }}"
+            echo "Triggered by completed workflow — head SHA is $COMMIT"
+          else
+            # manual runs: just use HEAD
+            COMMIT=$(git rev-parse HEAD)
+            echo "Manually-triggered — using HEAD ($COMMIT)"
           fi
-          
-          echo "Found latest commit hash: $LATEST_COMMIT_HASH"
-          echo "Extracting new entries from this commit..."
-          
-          # diff against its first parent, zero context
-          
-          git diff "${LATEST_COMMIT_HASH}^1" "$LATEST_COMMIT_HASH" --unified=0 \
+
+          # make sure we have that commit locally
+          git fetch --no-tags origin "$COMMIT"
+
+          # diff against its first parent, zero-context so only pure '+' lines show
+          git diff "${COMMIT}^1" "$COMMIT" --unified=0 \
             | grep '^\+' \
             | grep -v '^\+\+\+' \
-            > latest_entries.txt || true         
+            > latest_entries.txt
+
+          COUNT=$(wc -l < latest_entries.txt)
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::No added lines found in $COMMIT"
+            exit 1
+          fi
+
+          echo "✅ Found $COUNT new entries in $COMMIT"
+    
 
           #git show -m "$LATEST_COMMIT_HASH" | grep '^\+' | grep -v '^\+\+\+' > latest_entries.txt || true
 
-          echo "✅ Successfully processed commit. 'latest_entries.txt' has been created."
+         
           echo "Total new entries found: $(wc -l < latest_entries.txt)"
 
       # Step 3: Upload the extracted data as a downloadable artifact.

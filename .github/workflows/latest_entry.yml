@@ -57,7 +57,7 @@ jobs:
           echo "Found latest commit hash: $LATEST_COMMIT_HASH"
           echo "Extracting new entries from this commit..."
 
-          git show "$LATEST_COMMIT_HASH" | grep '^\+' | grep -v '^\+\+\+' > latest_entries.txt || true
+          git show -c "$LATEST_COMMIT_HASH" | grep '^\+' | grep -v '^\+\+\+' > latest_entries.txt || true
 
           echo "✅ Successfully processed commit. 'latest_entries.txt' has been created."
           echo "Total new entries found: $(wc -l < latest_entries.txt)"

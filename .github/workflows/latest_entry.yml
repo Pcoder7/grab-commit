@@ -40,7 +40,8 @@ jobs:
 
       # Step 2: Find the single most recent commit and extract its data.
 
-      - name: Extract New Entries via git show
+      # Step 2: Extract New Entries via git diff
+      - name: Extract New Entries via git diff
         shell: bash
         run: |
           
@@ -63,52 +64,47 @@ jobs:
           fi
           echo "::endgroup::"
 
-
-          # Block 2: Show full details of the commit found
-          echo "::group::[DEBUG] Block 2: Verifying Commit Details"
-          echo "Showing details for commit $COMMIT..."
-          git log -n1 --pretty=fuller "$COMMIT"
-          echo "::endgroup::"
-
-
-          # Block 3: Show the raw diff output from git
-          # This is the most important debug step. It shows what `grep` will receive.
-          echo "::group::[DEBUG] Block 3: Raw 'git show' Output"
-          echo "Showing raw, unfiltered diff for $COMMIT. The next grep command will process this output."
-          # We use `|| true` in case a commit has no diff (e.g., first commit) to avoid exiting.
-          git show "$COMMIT" --unified=0 || true
-          echo "End of raw 'git show' output."
+          # Block 2: Generate the raw diff using the most robust method
+          echo "::group::[DEBUG] Block 2: Generating Raw Diff"
+          # We must handle the edge case where the commit is the very first one (has no parent)
+          if git rev-parse --verify $COMMIT^ >/dev/null 2>&1; then
+            # This is a normal commit with a parent. Diff against the parent.
+            echo "Commit has a parent. Using 'git diff $COMMIT^ $COMMIT' for explicit comparison."
+            git diff "$COMMIT^" "$COMMIT" --unified=0 > raw_diff.log
+          else
+            # This is the first commit in the repository. Its "diff" is all of its content.
+            echo "Commit is the first commit (no parent). Using 'git show' to display its content."
+            git show "$COMMIT" --unified=0 > raw_diff.log
+          fi
+          echo "--- Contents of raw_diff.log (This is what will be filtered) ---"
+          cat raw_diff.log
+          echo "--- End of raw_diff.log ---"
           echo "::endgroup::"
           
-
-          # Block 4: Run the extraction command and show the result
-          echo "::group::[DEBUG] Block 4: Filtering Diff and Creating File"
-          echo "Filtering raw diff for lines starting with '+' and creating 'latest_entries.txt'..."
-          git show "$COMMIT" --unified=0 \
-            | grep '^\+' \
-            | grep -v '^\+\+\+' \
+          # Block 3: Filter the raw diff and create the final file
+          echo "::group::[DEBUG] Block 3: Filtering Diff"
+          echo "Filtering raw diff for lines starting with '+'..."
+          cat raw_diff.log \
+            | grep '^\+' --color=never \ 
             > latest_entries.txt || true
-          echo "File 'latest_entries.txt' created."
-          echo "--- Contents of latest_entries.txt ---"
+          echo "--- Contents of latest_entries.txt (The final result) ---"
           cat latest_entries.txt
           echo "--- End of file contents ---"
           echo "::endgroup::"
 
-
-          # Block 5: Count the lines and validate
-          echo "::group::[DEBUG] Block 5: Final Validation"
+          # Block 4: Count the lines and validate
+          echo "::group::[DEBUG] Block 4: Final Validation"
           COUNT=$(wc -l < latest_entries.txt)
-          echo "Line count in latest_entries.txt is: $COUNT"
+          echo "Final line count is: $COUNT"
           if [ "$COUNT" -eq 0 ]; then
             echo "::error::No added lines were found after filtering the diff from commit $COMMIT."
+            echo "Inspect '[DEBUG] Block 2' to see the raw diff that was processed."
             exit 1
           fi
           echo "Validation successful."
           echo "::endgroup::"
 
-
           echo "✅ Found $COUNT new entries in $COMMIT"
-          echo "Total new entries found: $(wc -l < latest_entries.txt)"
 
     
 

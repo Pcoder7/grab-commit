@@ -1,0 +1,73 @@
+# ====================================================================
+#              Automated Audit of Latest Workflow Commit
+#
+# This version has been corrected to use job-level environment
+# variables for better scoping and clarity, as requested.
+# ====================================================================
+
+name: "Automated Audit: Extract Latest Recon Data"
+
+on:
+  workflow_run:
+    workflows: ["permutate.yml"]
+    types:
+      - completed
+
+jobs:
+  extract_latest_commit_data:
+    # Only run if the triggering workflow was a success.
+    if: github.event.workflow_run.conclusion == 'success'
+    
+    name: Extract Data From Latest Commit
+    runs-on: ubuntu-latest
+
+    # ====================================================================
+    # THE FIX IS HERE: The 'env' block is now correctly placed inside the
+    # job, giving it the narrowest possible scope.
+    # ====================================================================
+    env:
+      STORE_OWNER: ${{ secrets.SECONDARY_USERNAME }}
+      STORE_REPO_NAME: ${{ secrets.STORE }}
+      STORE_TOKEN: ${{ secrets.PAT_FOR_SECONDRY }}
+
+    steps:
+      # Step 1: Checkout the private 'store-recon' repository.
+      # This step correctly uses the job-level environment variables.
+      - name: Checkout the private store-recon repository
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ env.STORE_OWNER }}/${{ env.STORE_REPO_NAME }}
+          token: ${{ env.STORE_TOKEN }}
+          fetch-depth: 0
+
+      # Step 2: Find the single most recent commit and extract its data.
+      - name: Find Latest Commit and Extract New Entries
+        shell: bash
+        run: |
+          COMMIT_MESSAGE_PATTERN="feat: Add new assets from distributed permutation scan"
+          
+          echo "Workflow triggered by the completion of Run ID: ${{ github.event.workflow_run.id }}"
+          echo "Searching for the latest commit in '${{ env.STORE_OWNER }}/${{ env.STORE_REPO_NAME }}'..."
+
+          LATEST_COMMIT_HASH=$(git log --grep="$COMMIT_MESSAGE_PATTERN" -n 1 --format="%H")
+
+          if [ -z "$LATEST_COMMIT_HASH" ]; then
+            echo "::error::Could not find any commits matching the pattern in the repository history."
+            exit 1
+          fi
+          
+          echo "Found latest commit hash: $LATEST_COMMIT_HASH"
+          echo "Extracting new entries from this commit..."
+
+          git show "$LATEST_COMMIT_HASH" | grep '^\+' | grep -v '^\+\+\+' > latest_entries.txt || true
+
+          echo "✅ Successfully processed commit. 'latest_entries.txt' has been created."
+          echo "Total new entries found: $(wc -l < latest_entries.txt)"
+
+      # Step 3: Upload the extracted data as a downloadable artifact.
+      - name: Upload Latest Entries as an Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "new-entries-from-run-${{ github.event.workflow_run.id }}"
+          path: latest_entries.txt
+          retention-days: 1

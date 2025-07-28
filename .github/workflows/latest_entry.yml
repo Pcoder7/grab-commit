@@ -12,6 +12,9 @@ on:
     workflows: ["permutate.yml"]
     types:
       - completed
+      
+  workflow_dispatch:
+      
 
 jobs:
   extract_latest_commit_data:

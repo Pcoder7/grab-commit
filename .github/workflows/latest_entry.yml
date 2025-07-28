@@ -44,36 +44,50 @@ jobs:
         run: |
           PATTERN="feat: Add new assets from distributed permutation scan"
 
+          # pick the right commit (same as before)
           if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
-            # when triggered by the upstream workflow, head_sha is the real commit
             COMMIT="${{ github.event.workflow_run.head_sha }}"
-            echo "▶️ workflow_run trigger — using head SHA $COMMIT"
             git fetch --no-tags origin "$COMMIT"
           else
-            # on manual dispatch, search the repo history for the last non‑merge commit
-            echo "▶️ manual trigger — searching for latest '$PATTERN' commit"
             COMMIT=$(git log \
               --no-merges \
               --grep="$PATTERN" \
               -n1 \
-              --format="%H") || true
+              --format="%H")
             if [ -z "$COMMIT" ]; then
-              echo "::error::No commit found matching '$PATTERN'"
+              echo "::error::No commit matching '$PATTERN'"
               exit 1
             fi
           fi
 
-          echo "▶️ Diffing $COMMIT against its first parent..."
-          git diff "${COMMIT}^1" "$COMMIT" --unified=0 \
+          echo "▶️ Processing commit $COMMIT"
+
+          # figure out how many parents it has
+          PARENT_COUNT=$(git rev-list --parents -n1 "$COMMIT" | wc -w)
+          if [ "$PARENT_COUNT" -gt 2 ]; then
+            # merge commit: use the second parent for the branch changes
+            PARENT="${COMMIT}^2"
+            echo "   Detected merge commit; diffing against second parent ($PARENT)"
+          else
+            # normal commit: diff against the first parent
+            PARENT="${COMMIT}^1"
+            echo "   Diffing against first parent ($PARENT)"
+          fi
+
+          # extract only added lines
+          git diff "$PARENT" "$COMMIT" --unified=0 \
             | grep '^\+' \
             | grep -v '^\+\+\+' \
-            > latest_entries.txt || true
+            > latest_entries.txt
 
           COUNT=$(wc -l < latest_entries.txt)
           if [ "$COUNT" -eq 0 ]; then
-            echo "::error::No added lines found in $COMMIT"
+            echo "::error::No added lines found in $COMMIT (parent $PARENT)"
             exit 1
           fi
+
+          echo "✅ Found $COUNT new entries in $COMMIT"
+
 
           echo "✅ Found $COUNT new entries in $COMMIT"
 

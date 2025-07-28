@@ -42,20 +42,28 @@ jobs:
       - name: Find Latest Commit and Extract New Entries
         shell: bash
         run: |
-          # on a workflow_run trigger, this is the SHA of the commit
+          PATTERN="feat: Add new assets from distributed permutation scan"
+
           if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            # when triggered by the upstream workflow, head_sha is the real commit
             COMMIT="${{ github.event.workflow_run.head_sha }}"
-            echo "Triggered by completed workflow — head SHA is $COMMIT"
+            echo "▶️ workflow_run trigger — using head SHA $COMMIT"
+            git fetch --no-tags origin "$COMMIT"
           else
-            # manual runs: just use HEAD
-            COMMIT=$(git rev-parse HEAD)
-            echo "Manually-triggered — using HEAD ($COMMIT)"
+            # on manual dispatch, search the repo history for the last non‑merge commit
+            echo "▶️ manual trigger — searching for latest '$PATTERN' commit"
+            COMMIT=$(git log \
+              --no-merges \
+              --grep="$PATTERN" \
+              -n1 \
+              --format="%H")
+            if [ -z "$COMMIT" ]; then
+              echo "::error::No commit found matching '$PATTERN'"
+              exit 1
+            fi
           fi
 
-          # make sure we have that commit locally
-          git fetch --no-tags origin "$COMMIT"
-
-          # diff against its first parent, zero-context so only pure '+' lines show
+          echo "▶️ Diffing $COMMIT against its first parent..."
           git diff "${COMMIT}^1" "$COMMIT" --unified=0 \
             | grep '^\+' \
             | grep -v '^\+\+\+' \
@@ -68,6 +76,7 @@ jobs:
           fi
 
           echo "✅ Found $COUNT new entries in $COMMIT"
+
     
 
           #git show -m "$LATEST_COMMIT_HASH" | grep '^\+' | grep -v '^\+\+\+' > latest_entries.txt || true

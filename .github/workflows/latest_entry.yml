@@ -26,7 +26,7 @@ jobs:
     # job, giving it the narrowest possible scope.
     # ====================================================================
     env:
-      STORE_OWNER: ${{ secrets.SECONDARY_USERNAME }}
+      STORE_OWNER: ${{ secrets.SECONDRY_USERNAME }}
       STORE_REPO_NAME: ${{ secrets.STORE }}
       STORE_TOKEN: ${{ secrets.PAT_FOR_SECONDRY }}
 

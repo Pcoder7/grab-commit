@@ -42,7 +42,7 @@ jobs:
       - name: Find Latest Commit and Extract New Entries
         shell: bash
         run: |
-          COMMIT_MESSAGE_PATTERN="feat: Add new assets from distributed permutation scan"
+          COMMIT_MESSAGE_PATTERN="Daily Recon: Update subdomain results"
           
           echo "Workflow triggered by the completion of Run ID: ${{ github.event.workflow_run.id }}"
           echo "Searching for the latest commit in '${{ env.STORE_OWNER }}/${{ env.STORE_REPO_NAME }}'..."

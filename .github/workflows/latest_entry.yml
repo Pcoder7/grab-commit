@@ -64,7 +64,7 @@ jobs:
           fi
 
           # show each parent‑diff (including for merges), zero‑context
-          git show -m "$COMMIT" --unified=0 \
+          git show "$COMMIT" --unified=0 \
             | grep '^\+' \
             | grep -v '^\+\+\+' \
             > latest_entries.txt || true

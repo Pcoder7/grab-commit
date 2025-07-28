@@ -19,15 +19,10 @@ on:
 jobs:
   extract_latest_commit_data:
     # Only run if the triggering workflow was a success.
-    if: github.event.workflow_run.conclusion == 'success'
+    #if: github.event.workflow_run.conclusion == 'success'
     
     name: Extract Data From Latest Commit
     runs-on: ubuntu-latest
-
-    # ====================================================================
-    # THE FIX IS HERE: The 'env' block is now correctly placed inside the
-    # job, giving it the narrowest possible scope.
-    # ====================================================================
     env:
       STORE_OWNER: ${{ secrets.SECONDRY_USERNAME }}
       STORE_REPO_NAME: ${{ secrets.STORE }}

@@ -83,9 +83,7 @@ jobs:
           # Block 3: Filter the diff using a robust method
           printf "::group::[DEBUG] Block 3: Filtering Diff\n"
           echo "Filtering 'raw_diff.log' for lines starting with '+' but NOT '+++'."
-          grep '^\+' raw_diff.log --color=never\
-            | grep -v '^\+\+\+' --color=never \
-            > latest_entries.txt || true
+          grep '^\+' raw_diff.log --color=never > latest_entries.txt || true
           echo "--- Contents of latest_entries.txt (The final, filtered result) ---"
           head -n 50 latest_entries.txt
           echo "--- End of file contents ---"

@@ -38,9 +38,12 @@ jobs:
           token: ${{ env.STORE_TOKEN }}
           fetch-depth: 0
 
-      # Step 2: Find the single most recent commit and extract its data.
+      # Step 2: Configure Git to disable color output for this job
 
-      # Step 2: Extract New Entries via git diff
+      - name: Configure Git for Scripting
+        run: git config --global color.ui never
+        
+      # Step 3: Find the single most recent commit and extract its data
       - name: Extract New Entries via git diff      
         shell: bash
         run: |

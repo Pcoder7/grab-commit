@@ -41,14 +41,15 @@ jobs:
       # Step 2: Find the single most recent commit and extract its data.
 
       # Step 2: Extract New Entries via git diff
+      - name: Extract New Entries via git diff      # Step 2: Extract New Entries via git diff
       - name: Extract New Entries via git diff
         shell: bash
         run: |
-          
+
           PATTERN="feat: Add new assets from distributed permutation scan"
 
           # Block 1: Find the target commit hash
-          echo "::group::[DEBUG] Block 1: Finding Commit"
+          printf "::group::[DEBUG] Block 1: Finding Commit\n"
           if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
             COMMIT="${{ github.event.workflow_run.head_sha }}"
             echo "▶️ Trigger is 'workflow_run'. Inspecting commit: $COMMIT"
@@ -57,52 +58,51 @@ jobs:
             echo "▶️ Trigger is 'workflow_dispatch'. Finding latest commit with pattern: '$PATTERN'"
             COMMIT=$(git log --no-merges --grep="$PATTERN" -n1 --format="%H")
             if [ -z "$COMMIT" ]; then
-              echo "::error::No commit found matching '$PATTERN'"
+              printf "::error::No commit found matching '$PATTERN'\n"
               exit 1
             fi
             echo "   → Found commit: $COMMIT"
           fi
-          echo "::endgroup::"
+          printf "::endgroup::\n"
 
-          # Block 2: Generate the raw diff using the most robust method
-          echo "::group::[DEBUG] Block 2: Generating Raw Diff"
-          # We must handle the edge case where the commit is the very first one (has no parent)
+          # Block 2: Generate and display a preview of the raw diff
+          printf "::group::[DEBUG] Block 2: Generating and Previewing Raw Diff\n"
           if git rev-parse --verify $COMMIT^ >/dev/null 2>&1; then
-            # This is a normal commit with a parent. Diff against the parent.
-            echo "Commit has a parent. Using 'git diff $COMMIT^ $COMMIT' for explicit comparison."
+            echo "Commit has a parent. Using 'git diff' for explicit comparison."
             git diff "$COMMIT^" "$COMMIT" --unified=0 > raw_diff.log
           else
-            # This is the first commit in the repository. Its "diff" is all of its content.
-            echo "Commit is the first commit (no parent). Using 'git show' to display its content."
+            echo "Commit is the first commit. Using 'git show' to display its content."
             git show "$COMMIT" --unified=0 > raw_diff.log
           fi
-          echo "--- Contents of raw_diff.log (This is what will be filtered) ---"
-          head -n10 raw_diff.log
-          echo "--- End of raw_diff.log ---"
-          echo "::endgroup::"
           
-          # Block 3: Filter the raw diff and create the final file
-          echo "::group::[DEBUG] Block 3: Filtering Diff"
-          echo "Filtering raw diff for lines starting with '+'..."
-          cat raw_diff.log \
-            | grep '^\+' --color=never \ 
+          echo "--- START: First 50 lines of raw_diff.log ---"
+          head -n 50 raw_diff.log
+          echo "--- END: First 50 lines of raw_diff.log ---"
+          
+          printf "::endgroup::\n"
+          
+          # Block 3: Filter the diff using a robust method
+          printf "::group::[DEBUG] Block 3: Filtering Diff\n"
+          echo "Filtering 'raw_diff.log' for lines starting with '+' but NOT '+++'."
+          grep '^\+' raw_diff.log --color=never\
+            | grep -v '^\+\+\+' --color=never \
             > latest_entries.txt || true
-          echo "--- Contents of latest_entries.txt (The final result) ---"
-          cat latest_entries.txt
+          echo "--- Contents of latest_entries.txt (The final, filtered result) ---"
+          head -n 50 latest_entries.txt
           echo "--- End of file contents ---"
-          echo "::endgroup::"
+          printf "::endgroup::\n"
 
           # Block 4: Count the lines and validate
-          echo "::group::[DEBUG] Block 4: Final Validation"
+          printf "::group::[DEBUG] Block 4: Final Validation\n"
           COUNT=$(wc -l < latest_entries.txt)
           echo "Final line count is: $COUNT"
           if [ "$COUNT" -eq 0 ]; then
-            echo "::error::No added lines were found after filtering the diff from commit $COMMIT."
-            echo "Inspect '[DEBUG] Block 2' to see the raw diff that was processed."
+            printf "::error::No added content lines were found after filtering the diff from commit %s.\n" "$COMMIT"
+            echo "VERIFY THIS by inspecting the raw diff preview in '[DEBUG] Block 2' above."
             exit 1
           fi
           echo "Validation successful."
-          echo "::endgroup::"
+          printf "::endgroup::\n"
 
           echo "✅ Found $COUNT new entries in $COMMIT"
 

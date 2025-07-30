@@ -44,7 +44,7 @@ jobs:
         run: git config --global color.ui never
         
       # Step 3: Find the single most recent commit and extract its data
-      - name: Extract Latest Entries
+      - name: Extract Latest Entries from Target Files
         id: extract_entries
         shell: bash
         run: |
@@ -52,8 +52,8 @@ jobs:
           # --- Configuration ---
           # The commit message to search for
           PATTERN="feat: Add new assets from distributed permutation scan"
-          # The specific file we want to extract changes from
-          TARGET_FILE="puredns_result.txt"
+          # The path pattern to find the target files using a wildcard (*)
+          TARGET_PATHSPEC="results/*/puredns_result.txt"
 
           # --- Block 1: Finding the Commit (Unchanged) ---
           printf "::group::[DEBUG] Block 1: Finding Commit\n"
@@ -69,36 +69,34 @@ jobs:
           echo "   → Found commit: $COMMIT"
           printf "::endgroup::\n"
 
-          # --- Block 2: Generating a Targeted Raw Diff (This block is modified) ---
-          printf "::group::[DEBUG] Block 2: Generating Raw Diff for '$TARGET_FILE' only\n"
-          # We add '-- "$TARGET_FILE"' to scope the git commands to a single file.
-          # The '--' is a safety measure that separates git options from file paths.
+          # --- Block 2: Generating a Targeted Raw Diff using a Pathspec (Modified) ---
+          printf "::group::[DEBUG] Block 2: Generating Raw Diff for paths matching '$TARGET_PATHSPEC'\n"
+          # We provide the wildcard pathspec to git. It will find ALL files matching
+          # this pattern that were changed in the commit and create a combined diff.
           if git rev-parse --verify $COMMIT^ >/dev/null 2>&1; then
-            # The '|| true' is added to prevent an error if the file was not changed in the commit.
-            git diff "$COMMIT^" "$COMMIT" --unified=0 -- "$TARGET_FILE" > raw_diff.log || true
+            git diff "$COMMIT^" "$COMMIT" --unified=0 -- "$TARGET_PATHSPEC" > raw_diff.log || true
           else
-            git show "$COMMIT" --unified=0 -- "$TARGET_FILE" > raw_diff.log || true
+            git show "$COMMIT" --unified=0 -- "$TARGET_PATHSPEC" > raw_diff.log || true
           fi
           printf "::endgroup::\n"
           
           # --- Block 3: Filtering Diff (Unchanged) ---
-          # This block works perfectly as is. It will now filter the more specific input.
+          # This filtering logic does not need to change. It will correctly process
+          # the combined diff from all the matched files.
           printf "::group::[DEBUG] Block 3: Filtering Diff\n"
           grep '^\+' raw_diff.log --color=never | grep -vE '^\+\+\+' --color=never > latest_entries.txt || true
           printf "::endgroup::\n"
 
-          # --- Block 4: Final Validation (Unchanged) ---
-          # This block also works perfectly. It will correctly validate the final output.
+          # --- Block 4: Final Validation (Updated for clarity) ---
           printf "::group::[DEBUG] Block 4: Final Validation\n"
           COUNT=$(wc -l < latest_entries.txt)
           if [ "$COUNT" -eq 0 ]; then
-            printf "::error::No added content lines were found in the file '%s' from commit %s.\n" "$TARGET_FILE" "$COMMIT"
+            # The error message now correctly references the pattern, not a single file.
+            printf "::error::No added content lines were found in files matching '%s' from commit %s.\n" "$TARGET_PATHSPEC" "$COMMIT"
             exit 1
           fi
-          echo "✅ Successfully extracted $COUNT new entries from '$TARGET_FILE' into latest_entries.txt"
+          echo "✅ Successfully extracted $COUNT new entries from files matching '$TARGET_PATHSPEC' into latest_entries.txt"
           printf "::endgroup::\n"
-
-          echo "✅ Found $COUNT new entries in $COMMIT"
 
     
 

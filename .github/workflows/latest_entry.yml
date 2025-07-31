@@ -51,9 +51,9 @@ jobs:
           set -e
           # --- Configuration ---
           # The commit message to search for
-          PATTERN="feat: Add new assets from distributed permutation scan"
+          PATTERN="Update httpx results from workflow run"
           # The path pattern to find the target files using a wildcard (*)
-          TARGET_PATHSPEC="results/*/puredns_result.txt"
+          TARGET_PATHSPEC="results/*/httpx_result.txt"
 
           # --- Block 1: Finding the Commit (Unchanged) ---
           printf "::group::[DEBUG] Block 1: Finding Commit\n"
@@ -84,7 +84,7 @@ jobs:
           # This filtering logic does not need to change. It will correctly process
           # the combined diff from all the matched files.
           printf "::group::[DEBUG] Block 3: Filtering Diff\n"
-          grep '^\+' raw_diff.log --color=never | grep -vE '^\+\+\+' --color=never > latest_entries.txt || true
+          grep '^\+' raw_diff.log --color=never | grep -vE '^\+\+\+' --color=never | awk -F' ' '{print $1}' > latest_entries.txt || true
           printf "::endgroup::\n"
 
           # --- Block 4: Final Validation (Updated for clarity) ---

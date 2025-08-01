@@ -51,7 +51,7 @@ jobs:
           set -e
           # --- Configuration ---
           # The commit message to search for
-          PATTERN="Update httpx results from workflow run"
+          PATTERN="Automated results from Secondary Account"
           # The path pattern to find the target files using a wildcard (*)
           TARGET_PATHSPEC="results/*/httpx_result.txt"
 

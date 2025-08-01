@@ -50,7 +50,6 @@ jobs:
         run: |
           set -e
 
-          
           # --- Block 1: Dynamically Find the Latest Correlation ID ---
           printf "::group::[DEBUG] Block 1: Discovering the latest Correlation ID\n"
           
@@ -65,7 +64,7 @@ jobs:
 
           # Second, from that message, extract JUST the ID number.
           # We grep for the specific line and then print the last field.
-          CORRELATION_ID=$(echo "$LATEST_COMMIT_MESSAGE" | grep -iE "Update from Correlation ID:" --color=never | awk '{print $NF} || true')
+          CORRELATION_ID=$(echo "$LATEST_COMMIT_MESSAGE" | grep -E "feat(recon): Automated http-multiple results from Correlation ID: " --color=never | awk '{print $NF}' || true)
           
           if [ -z "$CORRELATION_ID" ]; then
             printf "::error::Found a commit, but could not parse the Correlation ID from its message.\n"
@@ -78,7 +77,7 @@ jobs:
 
           # --- Configuration ---
           # The PATTERN is now built dynamically using the ID we just discovered.
-          PATTERN="Update from Correlation ID: ${CORRELATION_ID}"
+          PATTERN="feat(recon): Automated http-multiple results from Correlation ID: ${CORRELATION_ID}"
           TARGET_PATHSPEC="results/*/httpx_result.txt"
           
           # --- Block 2: Finding the Full Commit RANGE Using the Discovered ID ---

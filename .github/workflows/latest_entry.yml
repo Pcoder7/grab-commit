@@ -55,7 +55,7 @@ jobs:
           
           # First, find the full commit message of the MOST RECENT commit that matches the general pattern.
           # We use `--format=%B` to get the entire message body.
-          LATEST_COMMIT_MESSAGE=$(git log --no-merges --grep="Update from Correlation ID:" -n1 --format=%B)
+          LATEST_COMMIT_MESSAGE=$(git log --no-merges --grep="feat(recon): Automated http-multiple results from Correlation ID: " -n1 --format=%B || true)
           
           if [ -z "$LATEST_COMMIT_MESSAGE" ]; then
             printf "::error::Could not find any commits matching the pattern 'Update from Correlation ID:'.\n"

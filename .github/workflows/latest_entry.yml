@@ -64,7 +64,7 @@ jobs:
 
           # Second, from that message, extract JUST the ID number.
           # We grep for the specific line and then print the last field.
-          CORRELATION_ID=$(echo "$LATEST_COMMIT_MESSAGE" | grep -E "feat(recon): Automated http-multiple results from Correlation ID: " --color=never | awk '{print $NF}' || true)
+          CORRELATION_ID=$(echo "$LATEST_COMMIT_MESSAGE" | grep "feat(recon): Automated http-multiple results from Correlation ID: " --color=never | awk '{print $NF}' || true)
           
           if [ -z "$CORRELATION_ID" ]; then
             printf "::error::Found a commit, but could not parse the Correlation ID from its message.\n"

@@ -51,7 +51,7 @@ jobs:
           set -e
           # --- Configuration ---
           # The commit message to search for
-          PATTERN="Automated results from Secondary Account"
+          PATTERN="feat(recon): Automated results from Tertiary Account"
           # The path pattern to find the target files using a wildcard (*)
           TARGET_PATHSPEC="results/*/httpx_result.txt"
 

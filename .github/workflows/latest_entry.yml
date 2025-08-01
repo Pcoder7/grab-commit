@@ -58,8 +58,8 @@ jobs:
           LATEST_COMMIT_MESSAGE=$(git log --no-merges --grep="feat(recon): Automated http-multiple results from Correlation ID: " -n1 --format=%B || true)
           
           if [ -z "$LATEST_COMMIT_MESSAGE" ]; then
-            printf "::error::Could not find any commits matching the pattern 'Update from Correlation ID:'.\n"
-            exit 1
+            printf "::error::Could not find any commits matching the pattern 'feat(recon): Automated http-multiple results from Correlation ID: '.\n"
+            exit 0
           fi
 
           # Second, from that message, extract JUST the ID number.

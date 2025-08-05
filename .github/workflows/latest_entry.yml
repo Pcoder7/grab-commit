@@ -61,7 +61,7 @@ jobs:
             exit 0
           fi
           
-          CORRELATION_ID=$(echo "$LATEST_COMMIT_MESSAGE" | grep "results from Correlation ID:" --color=never | awk '{print $NF}' || true)
+          CORRELATION_ID=$(echo "$LATEST_COMMIT_MESSAGE" | grep "results from Correlation ID: " --color=never | awk '{print $NF}' || true)
           
           if [ -z "$CORRELATION_ID" ]; then
             printf "::error::Found a commit, but could not parse the Correlation ID from its message.\n"

@@ -49,60 +49,80 @@ jobs:
         shell: bash
         run: |
           set -e
-
-          # --- Block 1: Dynamically Find the Latest Correlation ID ---
-          printf "::group::[DEBUG] Block 1: Discovering the latest Correlation ID\n"
+          # --- Block 1: Dynamically Discover the Latest Correlation ID ---
+          printf "::group::[DEBUG] Block 1: Discovering the latest Correlation ID from multiple patterns\n"
           
-          # First, find the full commit message of the MOST RECENT commit that matches the general pattern.
-          # We use `--format=%B` to get the entire message body.
-          LATEST_COMMIT_MESSAGE=$(git log --no-merges --grep="feat(recon): Automated http-multiple results from Correlation ID: " -n1 --format=%B || true)
+          # Discover the latest Correlation ID by looking for the most recent commit matching EITHER pattern.
+          # This tells us which "batch" we should be focused on.
+          LATEST_COMMIT_MESSAGE=$(git log --no-merges -E --grep="(feat\(recon\): Automated http-multiple|http-permut) results from Correlation ID:" -n1 --format=%B || true)
           
           if [ -z "$LATEST_COMMIT_MESSAGE" ]; then
-            printf "::error::Could not find any commits matching the pattern 'feat(recon): Automated http-multiple results from Correlation ID: '.\n"
+            printf "::error::Could not find any commits matching the required http-multiple OR http-permut patterns.\n"
             exit 0
           fi
-
-          # Second, from that message, extract JUST the ID number.
-          # We grep for the specific line and then print the last field.
-          CORRELATION_ID=$(echo "$LATEST_COMMIT_MESSAGE" | grep "feat(recon): Automated http-multiple results from Correlation ID: " --color=never | awk '{print $NF}' || true)
+          
+          CORRELATION_ID=$(echo "$LATEST_COMMIT_MESSAGE" | grep "results from Correlation ID:" --color=never | awk '{print $NF}' || true)
           
           if [ -z "$CORRELATION_ID" ]; then
             printf "::error::Found a commit, but could not parse the Correlation ID from its message.\n"
             echo "Message was: $LATEST_COMMIT_MESSAGE"
             exit 0
           fi
-
           echo "   → Discovered latest Correlation ID: $CORRELATION_ID"
           printf "::endgroup::\n"
 
+          # --- Block 2: Prioritized Pattern Selection ---
+          printf "::group::[DEBUG] Block 2: Selecting the correct pattern to process for ID %s\n" "$CORRELATION_ID"
+          
+          # Define the two possible patterns for the discovered Correlation ID.
+          PATTERN_HTTP_MULTIPLE="feat(recon): Automated http-multiple results from Correlation ID: ${CORRELATION_ID}"
+          PATTERN_HTTP_PERMUT="http-permut results from Correlation ID: ${CORRELATION_ID}"
+          
+          # HIGHEST PRIORITY: First, check if the 'http-permut' (Pattern 2) commit exists for this ID.
+          # We only need to know if it exists, so `-n1 --format=%H` is efficient.
+          HTTP_PERMUT_COMMIT_EXISTS=$(git log --no-merges --grep="$PATTERN_HTTP_PERMUT" -n1 --format=%H || true)
+          
+          if [ -n "$HTTP_PERMUT_COMMIT_EXISTS" ]; then
+            echo "   → HIGHEST PRIORITY: Found 'http-permut' commit. Processing this pattern exclusively."
+            FINAL_PATTERN_TO_PROCESS="$PATTERN_HTTP_PERMUT"
+          else
+            echo "   → 'http-permut' not found. FALLING BACK to check for 'http-multiple' commit."
+            # FALLBACK: If 'http-permut' was not found, check if the 'http-multiple' (Pattern 1) commit exists.
+            HTTP_MULTIPLE_COMMIT_EXISTS=$(git log --no-merges --grep="$PATTERN_HTTP_MULTIPLE" -n1 --format=%H || true)
+            
+            if [ -n "$HTTP_MULTIPLE_COMMIT_EXISTS" ]; then
+              echo "   → FALLBACK: Found 'http-multiple' commit. Processing this pattern."
+              FINAL_PATTERN_TO_PROCESS="$PATTERN_HTTP_MULTIPLE"
+            else
+              printf "::error::Could not find any processable commits (neither http-permut nor http-multiple) for Correlation ID %s.\n" "$CORRELATION_ID"
+              exit 0
+            fi
+          fi
+          printf "::endgroup::\n"
+
           # --- Configuration ---
-          # The PATTERN is now built dynamically using the ID we just discovered.
-          PATTERN="feat(recon): Automated http-multiple results from Correlation ID: ${CORRELATION_ID}"
           TARGET_PATHSPEC="results/*/httpx_result.txt"
           
-          # --- Block 2: Finding the Full Commit RANGE Using the Discovered ID ---
-          printf "::group::[DEBUG] Block 2: Finding all commits with Correlation ID: %s\n" "$CORRELATION_ID"
+          # --- Block 3: Finding the Full Commit RANGE Using the Selected Pattern ---
+          printf "::group::[DEBUG] Block 3: Finding all commits matching the selected pattern\n"
           
-          COMMIT_HASHES=$(git log --no-merges --grep="$PATTERN" --format="%H")
+          # This now uses the FINAL_PATTERN_TO_PROCESS decided in Block 2.
+          COMMIT_HASHES=$(git log --no-merges --grep="$FINAL_PATTERN_TO_PROCESS" --format="%H")
           
           if [ -z "$COMMIT_HASHES" ]; then
-            # This is a sanity check, but should not be hit if Block 1 succeeded.
-            printf "::error::No commits found with the specific Correlation ID '%s'.\n" "$CORRELATION_ID"
+            printf "::error::Could not find any commits for the selected pattern. This may indicate an issue.\n"
             exit 0
           fi
-
           NEWEST_COMMIT=$(echo "$COMMIT_HASHES" | head -n1)
           OLDEST_COMMIT=$(echo "$COMMIT_HASHES" | tail -n1)
-
           echo "   → Found a batch of related commits."
           echo "   → Newest commit in batch: $NEWEST_COMMIT"
           echo "   → Oldest commit in batch: $OLDEST_COMMIT"
           printf "::endgroup::\n"
 
-          # --- Block 3: Generating a Targeted Raw Diff for the ENTIRE RANGE ---
-          printf "::group::[DEBUG] Block 3: Generating raw diff for the full range\n"
+          # --- Block 4: Generating a Targeted Raw Diff for the ENTIRE RANGE ---
+          printf "::group::[DEBUG] Block 4: Generating raw diff for the full range\n"
           
-          # This logic is robust and does not need to change.
           if git rev-parse --verify "$OLDEST_COMMIT^" >/dev/null 2>&1; then
             git diff "${OLDEST_COMMIT}^" "$NEWEST_COMMIT" --unified=0 -- "$TARGET_PATHSPEC" > raw_diff.log || true
           else
@@ -112,13 +132,13 @@ jobs:
           echo "   → Diff generated by comparing from before commit $OLDEST_COMMIT up to commit $NEWEST_COMMIT"
           printf "::endgroup::\n"
           
-          # --- Block 4: Filtering Diff (No changes needed) ---
-          printf "::group::[DEBUG] Block 4: Filtering Diff for added lines\n"
+          # --- Block 5: Filtering Diff (No changes needed) ---
+          printf "::group::[DEBUG] Block 5: Filtering Diff for added lines\n"
           grep '^\+' raw_diff.log --color=never | grep -vE '^\+\+\+' --color=never | awk -F' ' '{print $1}' | awk '{for(i=1;i<=NF;i++){gsub(/^\+/, "", $i); print $i}}' > latest_entries.txt || true
           printf "::endgroup::\n"
           
-          # --- Block 5: Final Validation ---
-          printf "::group::[DEBUG] Block 5: Final Validation\n"
+          # --- Block 6: Final Validation ---
+          printf "::group::[DEBUG] Block 6: Final Validation\n"
           COUNT=$(wc -l < latest_entries.txt)
           if [ "$COUNT" -eq 0 ]; then
             printf "::error::No new content lines were found in the commit batch for Correlation ID '%s'.\n" "$CORRELATION_ID"

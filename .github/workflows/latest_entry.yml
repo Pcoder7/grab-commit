@@ -54,7 +54,7 @@ jobs:
           
           # Discover the latest Correlation ID by looking for the most recent commit matching EITHER pattern.
           # This tells us which "batch" we should be focused on.
-          LATEST_COMMIT_MESSAGE=$(git log --no-merges -E --grep="(feat\(recon\): Automated http-multiple|http-permut) results from Correlation ID:" -n1 --format=%B || true)
+          LATEST_COMMIT_MESSAGE=$(git log --no-merges -E --grep="(feat\(recon\): Automated http-multiple|Update httpx results from primary ) results from Correlation ID:" -n1 --format=%B || true)
           
           if [ -z "$LATEST_COMMIT_MESSAGE" ]; then
             printf "::error::Could not find any commits matching the required http-multiple OR http-permut patterns.\n"
@@ -76,7 +76,7 @@ jobs:
           
           # Define the two possible patterns for the discovered Correlation ID.
           PATTERN_HTTP_MULTIPLE="feat(recon): Automated http-multiple results from Correlation ID: ${CORRELATION_ID}"
-          PATTERN_HTTP_PERMUT="http-permut results from Correlation ID: ${CORRELATION_ID}"
+          PATTERN_HTTP_PERMUT="Update httpx results from primary"
           
           # HIGHEST PRIORITY: First, check if the 'http-permut' (Pattern 2) commit exists for this ID.
           # We only need to know if it exists, so `-n1 --format=%H` is efficient.

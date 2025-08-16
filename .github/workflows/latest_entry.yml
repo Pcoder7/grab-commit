@@ -57,7 +57,7 @@ jobs:
           feat(recon): Automated http-multiple results from Correlation ID:
           EOF
           )
-          # This converts the multi-line string into a single regex with '|' (OR) separators.
+          # This converts the multi-line string into a single regex with '|' (OR) separators.          # This converts the multi-line string into a single regex with '|' (OR) separators.
           GREP_PATTERN=$(echo "$PATTERNS" | sed 's/[.*+?^${}()|[\]\\]/\\&/g' | paste -sd '|')
 
           # --- Block 1: Find the Single Latest Commit Matching Any Pattern ---
@@ -79,20 +79,18 @@ jobs:
           printf "::endgroup::\n"
 
           # --- Configuration for file targeting ---
-          TARGET_PATHSPEC="results/*/all_subdomains.txt"
+          TARGET_PATHSPEC="results/*/httpx_result.txt"
           
           # --- Block 2: Generate a Diff for the Single Commit ---
           printf "::group::[DEBUG] Block 2: Generating raw diff for the commit\n"
           
           # Use 'git show' which is designed to display the changes from a single commit.
-          # This is simpler and more correct than the previous 'git diff' range logic.
           git show "$LATEST_COMMIT_HASH" --unified=0 -- "$TARGET_PATHSPEC" > raw_diff.log || true
           
           echo "   → Raw diff for commit $LATEST_COMMIT_HASH saved to raw_diff.log"
           printf "::endgroup::\n"
           
           # --- Block 3: Filtering Diff for Added Lines ---
-          # This block remains the same as it correctly processes the diff file.
           printf "::group::[DEBUG] Block 3: Filtering Diff for added lines\n"
           grep '^\+' raw_diff.log --color=never | grep -vE '^\+\+\+' --color=never | awk -F' ' '{print $1}' | awk '{for(i=1;i<=NF;i++){gsub(/^\+/, "", $i); print $i}}' > latest_entries.txt || true
           printf "::endgroup::\n"
@@ -100,12 +98,14 @@ jobs:
           # --- Block 4: Final Validation ---
           printf "::group::[DEBUG] Block 4: Final Validation\n"
           COUNT=$(wc -l < latest_entries.txt)
-          if [ "$COUNT" -eq 0 ]; {
+          
+          # CORRECTED SYNTAX: Replaced '{' with 'then' and removed the closing '}'
+          if [ "$COUNT" -eq 0 ]; then
             # This is now a warning, as a commit might legitimately not add new lines to the target files.
             printf "::warning::No new content lines were found in commit %s for the target files.\n" "$LATEST_COMMIT_HASH"
-            exit 0 # Exit successfully.
-          }
+            exit 0 
           fi
+
           echo "✅ Successfully extracted $COUNT new entries from commit $LATEST_COMMIT_HASH into latest_entries.txt"
           printf "::endgroup::\n"
     

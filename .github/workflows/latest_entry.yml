@@ -79,7 +79,7 @@ jobs:
           printf "::endgroup::\n"
 
           # --- Configuration for file targeting ---
-          TARGET_PATHSPEC="results/*/httpx_result.txt"
+          TARGET_PATHSPEC="results/*/puredns_result.txt"
           
           # --- Block 2: Generate a Diff for the Single Commit ---
           printf "::group::[DEBUG] Block 2: Generating raw diff for the commit\n"

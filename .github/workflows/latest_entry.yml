@@ -53,10 +53,10 @@ jobs:
           # To add a new pattern, just add a new line inside the PATTERNS variable.
           # The script will handle the rest automatically.
           PATTERNS=$(cat <<'EOF'
-feat: Add new assets from distributed permutation scan with Correlation ID:
-feat(recon): Automated http-multiple results from Correlation ID:
-EOF
-)
+          feat: Add new assets from distributed permutation scan with Correlation ID:
+          feat(recon): Automated http-multiple results from Correlation ID:
+          EOF
+          )
           # This converts the multi-line string into a single regex with '|' (OR) separators.
           GREP_PATTERN=$(echo "$PATTERNS" | sed 's/[.*+?^${}()|[\]\\]/\\&/g' | paste -sd '|')
 

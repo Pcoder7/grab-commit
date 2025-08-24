@@ -65,7 +65,7 @@ jobs:
           echo "-> Searching for commits with the exact pattern: '$FULL_PATTERN'"
           
 
-          COMMIT_LIST=$(git log --no-merges --grep="$FULL_PATTERN" --format="%H")
+          COMMIT_LIST=$(git log --no-merges --grep="$FULL_PATTERN" --format="%H" || true)
           # ====================================================================
 
           if [ -z "$COMMIT_LIST" ]; then
@@ -86,7 +86,8 @@ jobs:
           fi
           
           # This filters the diff to get the clean list of subdomains and saves it as the input.
-          grep '^\+' raw_diff.log | awk '{print $1}' | sed 's/^+//' > subdomains.txt
+          grep '^\+' raw_diff.log | grep -vE '^\+\+\+' | awk '{print $1}' | sed 's/^+//' > subdomains.txt || true
+
 
           
 

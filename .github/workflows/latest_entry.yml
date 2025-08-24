@@ -57,7 +57,7 @@ jobs:
         run: |
           
           # The Correlation ID is the unique run_id from the puredns-permut workflow
-          CORRELATION_ID="17188854188"
+          CORRELATION_ID="17189532795"
           
           FULL_PATTERN="feat: Add new assets from distributed permutation scan from Correlation ID: ${CORRELATION_ID}"
           TARGET_PATHSPEC="results/*/puredns_result.txt"

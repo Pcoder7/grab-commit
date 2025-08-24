@@ -64,8 +64,7 @@ jobs:
 
           echo "-> Searching for commits with the exact pattern: '$FULL_PATTERN'"
           
-          # This command now finds ALL commits that match the FULL pattern.
-          # This correctly groups the Primary, Secondary, and Tertiary commits.
+
           COMMIT_LIST=$(git log --no-merges --grep="$FULL_PATTERN" --format="%H")
           # ====================================================================
 

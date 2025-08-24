@@ -96,8 +96,7 @@ jobs:
              echo "::warning::While commits were found, no new subdomains were extracted after filtering."
           fi
 
-          wc -l subdomains.txt
-          head -n10 subdomains.txt
+          cat subdomains.txt
           echo "✅ Successfully extracted $COUNT new entries into subdomains.txt"
     
 

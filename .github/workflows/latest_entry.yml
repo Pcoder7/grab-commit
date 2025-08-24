@@ -44,70 +44,56 @@ jobs:
         run: git config --global color.ui never
         
       # Step 3: Find the single most recent commit and extract its data
-      - name: Extract Latest Entries from Target Files
+      - name: Mark Directory as Safe
+        shell: bash
+        run: |
+          # This command tells Git to trust the current repository directory,
+          # resolving the "dubious ownership" error.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          
+      - name: Extract Latest puredns-permut Entries
         id: extract_entries
         shell: bash
         run: |
-          set -e
-          # --- Configuration: Define all your patterns here ---
-          # To add a new pattern, just add a new line inside the PATTERNS variable.
-          # The script will handle the rest automatically.
-          PATTERNS=$(cat <<'EOF'
-          feat: Add new assets from distributed permutation scan with Correlation ID:
-          feat(recon): Automated http-multiple results from Correlation ID:
-          EOF
-          )
-          # This converts the multi-line string into a single regex with '|' (OR) separators.          # This converts the multi-line string into a single regex with '|' (OR) separators.
-          GREP_PATTERN=$(echo "$PATTERNS" | sed 's/[.*+?^${}()|[\]\\]/\\&/g' | paste -sd '|')
-
-          # --- Block 1: Find the Single Latest Commit Matching Any Pattern ---
-          printf "::group::[DEBUG] Block 1: Finding the latest commit\n"
-          echo "   → Searching for the latest commit matching any of the defined patterns..."
           
-          # Find the hash of the single most recent commit (-n1) that matches the combined regex pattern.
-          LATEST_COMMIT_HASH=$(git log --no-merges -E --grep="$GREP_PATTERN" -n1 --format=%H || true)
+          # The Correlation ID is the unique run_id from the puredns-permut workflow
+          CORRELATION_ID="${{ github.event.inputs.run_id }}"
           
-          if [ -z "$LATEST_COMMIT_HASH" ]; then
-            printf "::error::Could not find any commits matching the required patterns.\n"
-            exit 1 # This is a fatal error, so we fail the job.
-          fi
-          
-          COMMIT_MESSAGE=$(git log -1 --format=%B "$LATEST_COMMIT_HASH")
-          echo "✅ Found latest commit:"
-          echo "   → Hash: $LATEST_COMMIT_HASH"
-          echo "   → Message: $COMMIT_MESSAGE"
-          printf "::endgroup::\n"
-
-          # --- Configuration for file targeting ---
+          FULL_PATTERN="feat: Add new assets from distributed permutation scan from Correlation ID: ${CORRELATION_ID}"
           TARGET_PATHSPEC="results/*/puredns_result.txt"
+
+          echo "-> Searching for commits with the exact pattern: '$FULL_PATTERN'"
           
-          # --- Block 2: Generate a Diff for the Single Commit ---
-          printf "::group::[DEBUG] Block 2: Generating raw diff for the commit\n"
-          
-          # Use 'git show' which is designed to display the changes from a single commit.
-          git show "$LATEST_COMMIT_HASH" --unified=0 -- "$TARGET_PATHSPEC" > raw_diff.log || true
-          
-          echo "   → Raw diff for commit $LATEST_COMMIT_HASH saved to raw_diff.log"
-          printf "::endgroup::\n"
-          
-          # --- Block 3: Filtering Diff for Added Lines ---
-          printf "::group::[DEBUG] Block 3: Filtering Diff for added lines\n"
-          grep '^\+' raw_diff.log --color=never | grep -vE '^\+\+\+' --color=never | awk -F' ' '{print $1}' | awk '{for(i=1;i<=NF;i++){gsub(/^\+/, "", $i); print $i}}' > latest_entries.txt || true
-          printf "::endgroup::\n"
-          
-          # --- Block 4: Final Validation ---
-          printf "::group::[DEBUG] Block 4: Final Validation\n"
-          COUNT=$(wc -l < latest_entries.txt)
-          
-          # CORRECTED SYNTAX: Replaced '{' with 'then' and removed the closing '}'
-          if [ "$COUNT" -eq 0 ]; then
-            # This is now a warning, as a commit might legitimately not add new lines to the target files.
-            printf "::warning::No new content lines were found in commit %s for the target files.\n" "$LATEST_COMMIT_HASH"
-            exit 0 
+          # This command now finds ALL commits that match the FULL pattern.
+          # This correctly groups the Primary, Secondary, and Tertiary commits.
+          COMMIT_LIST=$(git log --no-merges --grep="$FULL_PATTERN" --format="%H")
+          # ====================================================================
+
+          if [ -z "$COMMIT_LIST" ]; then
+            echo "::error::No commits found for Correlation ID '$CORRELATION_ID' with the specified pattern. Cannot proceed."
+            exit 0
           fi
 
-          echo "✅ Successfully extracted $COUNT new entries from commit $LATEST_COMMIT_HASH into latest_entries.txt"
-          printf "::endgroup::\n"
+          LATEST_COMMIT=$(echo "$COMMIT_LIST" | head -n 1)
+          OLDEST_COMMIT=$(echo "$COMMIT_LIST" | tail -n 1)
+
+          echo "-> Found commit(s) to process for this run: $COMMIT_LIST"
+
+          # This logic correctly generates a combined diff of all changes across all correlated commits.
+          if git rev-parse --verify $OLDEST_COMMIT^ >/dev/null 2>&1; then
+            git diff "$OLDEST_COMMIT^" "$LATEST_COMMIT" --unified=0 -- "$TARGET_PATHSPEC" > raw_diff.log || true
+          else
+            git show "$LATEST_COMMIT" --unified=0 -- "$TARGET_PATHSPEC" > raw_diff.log || true
+          fi
+          
+          # This filters the diff to get the clean list of subdomains and saves it as the input.
+          grep '^\+' raw_diff.log | awk '{print $1}' | sed 's/^+//' > subdomains.txt
+
+          COUNT=$(wc -l < subdomains.txt)
+          if [ "$COUNT" -eq 0 ]; then
+             echo "::warning::While commits were found, no new subdomains were extracted after filtering."
+          fi
+          echo "✅ Successfully extracted $COUNT new entries into subdomains.txt"
     
 
           #git show -m "$LATEST_COMMIT_HASH" | grep '^\+' | grep -v '^\+\+\+' > latest_entries.txt || true

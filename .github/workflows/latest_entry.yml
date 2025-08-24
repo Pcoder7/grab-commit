@@ -89,10 +89,15 @@ jobs:
           # This filters the diff to get the clean list of subdomains and saves it as the input.
           grep '^\+' raw_diff.log | awk '{print $1}' | sed 's/^+//' > subdomains.txt
 
+          
+
           COUNT=$(wc -l < subdomains.txt)
           if [ "$COUNT" -eq 0 ]; then
              echo "::warning::While commits were found, no new subdomains were extracted after filtering."
           fi
+
+          wc -l subdomains.txt
+          head -n10 subdomains.txt
           echo "✅ Successfully extracted $COUNT new entries into subdomains.txt"
     
 
